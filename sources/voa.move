@@ -1,0 +1,369 @@
+module my_addrx::Community {
+    use std::signer;
+    use aptos_framework::event;
+    use std::vector;
+
+    friend my_addrx::tests;
+
+    // Errors
+    const E_NOT_INITIALIZED: u64 = 1;
+    const ECOMMUNITY_DOESNT_EXIST: u64 = 2;
+    const E_NOT_AUTHORIZED: u64 = 3;
+    const E_NOT_FOUND: u64 = 4;
+
+    // Community, Proposals, Polls, Posts, Comments
+    struct CommunitiesList has key {
+        communities: vector<Community>,
+    }
+
+    struct Community has store, drop, copy {
+        community_id: vector<u8>,
+        address: address,
+        config: Config,
+        posts: vector<Post>,
+        proposals: vector<Proposal>,
+        polls: vector<Poll>,
+    }
+
+    struct Post has store, drop, copy {
+        id: vector<u8>,
+        creator: address,
+        content: vector<u8>,
+        comments: vector<Comment>,
+        applauds: vector<address>, // Store addresses of applauding users
+    }
+
+    struct Proposal has store, drop, copy {
+        id: vector<u8>,
+        creator: address,
+        title: vector<u8>,
+        description: vector<u8>,
+        votes: vector<Vote>,
+        comments: vector<Comment>,
+    }
+
+    struct Poll has store, drop, copy {
+        id: vector<u8>,
+        creator: address,
+        question: vector<u8>,
+        options: vector<vector<u8>>,
+        votes: vector<address>, // Store addresses of voters
+    }
+
+    struct Comment has store, drop, copy {
+        id: vector<u8>,
+        creator: address,
+        content: vector<u8>,
+        applauds: vector<address>, // Store addresses of applauding users
+    }
+
+    struct Vote has store, drop, copy {
+        power: u64,
+        age: u64,
+    }
+
+    struct ConfigProp has store, drop, copy {
+        minimum_voice_power: u64,
+        minimum_voice_age: u64
+    }
+
+    struct Config has store, drop, copy {
+        post: ConfigProp,
+        comment: ConfigProp,
+        proposal: ConfigProp,
+        poll: ConfigProp
+    }
+
+    #[event]
+    struct CreateCommunityEvent has store, drop, copy {
+    community_id: vector<u8>,
+    creator: address,
+    config: Config,
+}
+
+#[event]
+       struct CreatePostEvent has store, drop, copy {
+        post_id: vector<u8>,
+        creator: address,
+        content: vector<u8>,
+    }
+
+     #[event]
+    struct CreateProposalEvent has store, drop, copy {
+        proposal_id: vector<u8>,
+        creator: address,
+        title: vector<u8>,
+        description: vector<u8>,
+    }
+
+    #[event]
+    struct CreatePollEvent has store, drop, copy {
+        poll_id: vector<u8>,
+        creator: address,
+        question: vector<u8>,
+        options: vector<vector<u8>>,
+    }
+
+    #[event]
+    struct CreateCommentEvent has store, drop, copy {
+        comment_id: vector<u8>,
+        creator: address,
+        content: vector<u8>,
+    }
+
+    #[event]
+    struct VoteEvent has store, drop, copy {
+        post_or_proposal_id: u64,
+        voter: address,
+        vote_power: u64,
+    }
+
+    #[event]
+    struct ApplaudEvent has store, drop, copy {
+        applauded_id: vector<u8>,
+        applauder: address,
+    }
+
+    // Module initialization
+    fun init_module(account: &signer) {
+        let communities_list = CommunitiesList {
+            communities: vector::empty(),
+        };
+        move_to(account, communities_list);
+    }
+
+    // Creating a new community
+    public entry fun create_community(account: &signer, 
+    community_id: vector<u8>,
+                                   min_voice_power_post: u64, 
+                                   min_voice_age_post: u64, 
+                                   min_voice_power_comment: u64, 
+                                   min_voice_age_comment: u64, 
+                                   min_voice_power_proposal: u64, 
+                                   min_voice_age_proposal: u64, 
+                                   min_voice_power_poll: u64, 
+                                   min_voice_age_poll: u64) acquires CommunitiesList {
+    let signer_address = signer::address_of(account);
+    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
+
+    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+
+    let new_config = Config {
+        post: ConfigProp { minimum_voice_power: min_voice_power_post, minimum_voice_age: min_voice_age_post },
+        comment: ConfigProp { minimum_voice_power: min_voice_power_comment, minimum_voice_age: min_voice_age_comment },
+        proposal: ConfigProp { minimum_voice_power: min_voice_power_proposal, minimum_voice_age: min_voice_age_proposal },
+        poll: ConfigProp { minimum_voice_power: min_voice_power_poll, minimum_voice_age: min_voice_age_poll }
+    };
+
+    let new_community = Community {
+        community_id,
+        address: signer_address,
+        config: new_config,
+        posts: vector::empty(),
+        proposals: vector::empty(),
+        polls: vector::empty(),
+    };
+
+    vector::push_back(&mut communities_list.communities, new_community);
+
+    // Create a new event instance to emit
+    let community_event = CreateCommunityEvent {
+        community_id,
+        creator: signer_address,
+        config: new_config,
+    };
+
+    event::emit(community_event);
+}
+
+  // Function to get the list of communities
+    public fun get_communities(account: &signer): vector<Community> acquires CommunitiesList {
+        let communities_list = borrow_global<CommunitiesList>(signer::address_of(account));
+        communities_list.communities
+    }
+
+// Create a post in a community
+public entry fun create_post(account: &signer, community_id: vector<u8>, post_id: vector<u8>, content: vector<u8>) acquires CommunitiesList {
+    let signer_address = signer::address_of(account);
+    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
+
+    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    
+    // Use a helper function to find the index of the community
+    let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
+
+
+    let new_post = Post {
+        id: post_id,
+        creator: signer_address,
+        content, // Assuming you're passing content as a parameter
+        comments: vector::empty<Comment>(),
+        applauds: vector::empty<address>(),
+    };
+
+    vector::push_back(&mut community.posts, new_post);
+
+    let my_event = CreatePostEvent {
+        post_id,
+        creator: signer_address,
+        content, // Assuming you're passing content as a parameter
+    };
+    event::emit(my_event);
+}
+
+public fun get_posts(community: &Community): &vector<Post> {
+        &community.posts
+    }
+
+    // Add functions for creating proposals, polls, comments, and applauds...
+
+    public entry fun create_proposal(account: &signer, community_id: vector<u8>, proposal_id: vector<u8>, title: vector<u8>, description: vector<u8>) acquires CommunitiesList {
+    let signer_address = signer::address_of(account);
+    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
+    
+    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    
+    // Use a helper function to find the index of the community
+    let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
+
+    let proposal = Proposal {
+        id: proposal_id,
+        title: title,
+        description,
+        creator: signer_address,
+        votes: vector::empty(),
+        comments: vector::empty<Comment>(),
+    };
+
+    vector::push_back(&mut community.proposals, proposal);
+
+    let proposal_event = CreateProposalEvent {
+        proposal_id,
+        title,
+        creator: signer_address,
+         description,
+    };
+
+    event::emit(proposal_event);
+}
+
+public fun get_proposals(community: &Community): &vector<Proposal> {
+        &community.proposals
+    }
+
+public entry fun create_poll(account: &signer, community_id: vector<u8>, poll_id: vector<u8>, question: vector<u8>, options: vector<vector<u8>>) acquires CommunitiesList {
+    let signer_address = signer::address_of(account);
+    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
+    
+    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+
+    // Use a helper function to find the index of the community
+    let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
+
+    let poll = Poll {
+        id: poll_id,
+        question,
+        options,
+        creator: signer_address,
+        votes: vector::empty(), // Initialize with an empty vector for votes
+    };
+
+     vector::push_back(&mut community.polls, poll);
+
+    let poll_event = CreatePollEvent {
+        poll_id,
+        question,
+        creator: signer_address,
+        options,
+    };
+
+    event::emit(poll_event);
+}
+
+public entry fun create_comment(account: &signer, community_id: vector<u8>, post_id: vector<u8>, comment_id: vector<u8>, content: vector<u8>) acquires CommunitiesList {
+    let signer_address = signer::address_of(account);
+    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
+    
+    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    
+    // Use a helper function to find the index of the community
+    let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
+
+    let post_index = find_post_index(&community.posts, post_id);
+    let post = vector::borrow_mut<Post>(&mut community.posts, post_index);
+
+    let comment = Comment {
+        id: comment_id,
+        content,
+        creator: signer_address,
+        applauds: vector::empty()
+    };
+
+    vector::push_back(&mut post.comments, comment);
+
+    let comment_event = CreateCommentEvent {
+        comment_id,
+        content,
+        creator: signer_address,
+    };
+
+    event::emit(comment_event);
+}
+
+public entry fun create_applaud(account: &signer, community_id: vector<u8>, post_id: vector<u8>, applauded_id: vector<u8>) acquires CommunitiesList {
+    let signer_address = signer::address_of(account);
+    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
+
+    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    
+    // Use a helper function to find the index of the community
+    let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
+
+    let post_index = find_post_index(&community.posts, post_id);
+    let post = vector::borrow_mut<Post>(&mut community.posts, post_index);
+
+    
+    vector::push_back(&mut post.applauds, signer_address);
+
+    let applaud_event = ApplaudEvent {
+        applauded_id,
+        applauder: signer_address,
+    };
+
+    event::emit(applaud_event);
+}
+
+    // Function to find the community index by ID
+    public(friend) fun find_community_index(communities: &vector<Community>, community_id: vector<u8>): u64 {
+        let len = vector::length(communities);
+        for (i in 0..len) {
+            let community = vector::borrow(communities, i);
+            if (community.community_id == community_id) {
+                return i
+            };
+        };
+        abort ECOMMUNITY_DOESNT_EXIST
+    }
+
+      // Function to find the post index by ID
+  public(friend) fun find_post_index(posts: &vector<Post>, post_id: vector<u8>): u64 {
+        let len = vector::length(posts);
+        for (i in 0..len) {
+            let post = vector::borrow(posts, i);
+            if (post.id == post_id) {
+                return i
+            };
+        };
+        abort E_NOT_FOUND
+    }
+
+      #[test_only]
+    public fun init_module_for_test(sender: &signer) {
+        init_module(sender);
+    }
+}
