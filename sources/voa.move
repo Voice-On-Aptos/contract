@@ -422,6 +422,47 @@ public entry fun create_applaud(account: &signer, community_id: vector<u8>, post
     event::emit(applaud_event);
 }
 
+    //view functions
+    #[view]
+    public fun get_user_communities(account: address): vector<Community> acquires CommunitiesList {
+        assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
+        let communities_list = borrow_global<CommunitiesList>(account);
+        communities_list.communities
+    }
+
+       #[view]
+    public fun get_user_posts(account: address, community_id: vector<u8>): vector<Post> acquires CommunitiesList {
+    assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
+
+    let communities_list = borrow_global_mut<CommunitiesList>(account);
+ let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
+
+    community.posts
+}
+
+    #[view]
+    public fun get_user_proposals(account: address, community_id: vector<u8>): vector<Proposal> acquires CommunitiesList {
+    assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
+
+    let communities_list = borrow_global_mut<CommunitiesList>(account);
+ let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
+
+    community.proposals
+}
+
+   #[view]
+    public fun get_user_polls(account: address, community_id: vector<u8>): vector<Poll> acquires CommunitiesList {
+    assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
+
+    let communities_list = borrow_global_mut<CommunitiesList>(account);
+ let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
+
+    community.polls
+}
+
     // Function to find the community index by ID
     public(friend) fun find_community_index(communities: &vector<Community>, community_id: vector<u8>): u64 {
         let len = vector::length(communities);
