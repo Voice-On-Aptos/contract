@@ -9,6 +9,8 @@ module my_addrx::tests {
     const E_PROPOSAL_NOT_CREATED: u64 = 3;
     const E_COMMUNITY_NOT_FOUND: u64 = 4;
     const E_POST_NOT_FOUND: u64 = 5;
+    const E_MEMBER_NOT_ADDED: u64 = 6;
+    const E_MEMBER_NOT_REMOVED: u64 = 6;
 
  #[test(account=@0xabc)]
     public fun test_create_community(account: &signer) {
@@ -96,6 +98,48 @@ module my_addrx::tests {
         // Test for non-existing community (should abort with error)
         // let non_existing_id = b"community2";
         // assert!(Community::find_community_index(&communities, non_existing_id) == 0, E_COMMUNITY_NOT_FOUND);
+    }
+
+    //test for join community
+    #[test(account=@0xabc)]
+    public fun test_join_comunity(account: &signer){
+           Community::init_module_for_test(account);
+           let community_id = b"community1";
+
+               Community::create_community(account, 
+            community_id,
+            1, 1, 1, 1, 1, 1, 1, 1);
+
+           Community::join_community(account, community_id);
+
+        // Verify that the member was added to the community
+        let communities = Community::get_communities(account);
+        let community = vector::borrow(&communities, 0);
+
+        let members = Community::get_members(community);
+        assert!(vector::length(members) == 1, E_MEMBER_NOT_ADDED);
+    }
+
+    //test for leave community
+    #[test(account=@0xabc)]
+    public fun test_leave_comunity(account: &signer){
+           Community::init_module_for_test(account);
+           let community_id = b"community1";
+
+               Community::create_community(account, 
+            community_id,
+            1, 1, 1, 1, 1, 1, 1, 1);
+
+              Community::join_community(account, community_id);
+
+           Community::leave_community(account, community_id);
+
+        // Verify that the member was removed to the community
+        let communities = Community::get_communities(account);
+        let community = vector::borrow(&communities, 0);
+
+        let members = Community::get_members(community);
+        assert!(vector::length(members) == 0, E_MEMBER_NOT_REMOVED);
     }
 
     // Update other tests similarly...

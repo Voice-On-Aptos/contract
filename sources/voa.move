@@ -10,6 +10,8 @@ module my_addrx::Community {
     const ECOMMUNITY_DOESNT_EXIST: u64 = 2;
     const E_NOT_AUTHORIZED: u64 = 3;
     const E_NOT_FOUND: u64 = 4;
+    const E_ALREADY_MEMBER: u64 = 5;
+    const E_NOT_MEMBER: u64 = 6;
 
     // Community, Proposals, Polls, Posts, Comments
     struct CommunitiesList has key {
@@ -23,6 +25,7 @@ module my_addrx::Community {
         posts: vector<Post>,
         proposals: vector<Proposal>,
         polls: vector<Poll>,
+        members: vector<address>,
     }
 
     struct Post has store, drop, copy {
@@ -124,6 +127,18 @@ module my_addrx::Community {
         applauder: address,
     }
 
+    #[event]
+    struct JoinCommunityEvent has store, drop, copy {
+        community_id: vector<u8>,
+        user_address: address,
+    }
+
+    #[event]
+    struct LeaveCommunityEvent has store, drop, copy {
+        community_id: vector<u8>,
+        user_address: address,
+    }
+
     // Module initialization
     fun init_module(account: &signer) {
         let communities_list = CommunitiesList {
@@ -162,6 +177,7 @@ module my_addrx::Community {
         posts: vector::empty(),
         proposals: vector::empty(),
         polls: vector::empty(),
+        members: vector::empty(),
     };
 
     vector::push_back(&mut communities_list.communities, new_community);
@@ -181,6 +197,74 @@ module my_addrx::Community {
         let communities_list = borrow_global<CommunitiesList>(signer::address_of(account));
         communities_list.communities
     }
+
+    public fun get_members(community: &Community): &vector<address> {
+        &community.members
+    }
+
+    //join community
+    public entry fun join_community(account: &signer, community_id: vector<u8>) acquires CommunitiesList {
+    let signer_address = signer::address_of(account);
+    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
+
+    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    
+    // Use a helper function to find the index of the community
+    let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
+
+       // Check if the user is already a member
+    let len = vector::length(&community.members);
+    for (i in 0..len) {
+        if (*vector::borrow(&community.members, i) == signer_address) {
+            abort E_ALREADY_MEMBER // Define a custom error for this scenario
+        };
+    };
+
+     vector::push_back(&mut community.members, signer_address);
+
+    // Emit an event for joining the community
+    let join_event = JoinCommunityEvent {
+       community_id,
+        user_address: signer_address,
+    };
+    event::emit(join_event);
+}
+
+    //leave community
+    public entry fun leave_community(account: &signer, community_id: vector<u8>) acquires CommunitiesList {
+    let signer_address = signer::address_of(account);
+    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
+
+    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    
+    // Use a helper function to find the index of the community
+    let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
+
+    // Check if the user is a member
+let len = vector::length(&community.members);
+    let found: bool = false;
+    let index: u64 = 0;
+
+    for (i in 0..len) {
+        if (*vector::borrow(&community.members, i) == signer_address) {
+            found = true;
+            index = i;
+            break
+        };
+    };
+    assert!(found, E_NOT_MEMBER); 
+    
+     vector::remove(&mut community.members, index);
+
+    // Emit an event for leaving the community
+    let leave_event = LeaveCommunityEvent{
+       community_id,
+        user_address: signer_address,
+    };
+    event::emit(leave_event);
+}
 
 // Create a post in a community
 public entry fun create_post(account: &signer, community_id: vector<u8>, post_id: vector<u8>, content: vector<u8>) acquires CommunitiesList {
