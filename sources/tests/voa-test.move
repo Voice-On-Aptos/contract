@@ -12,9 +12,9 @@ module my_addrx::tests {
     const E_MEMBER_NOT_ADDED: u64 = 6;
     const E_MEMBER_NOT_REMOVED: u64 = 6;
 
- #[test(account=@0xabc)]
-    public fun test_create_community(account: &signer) {
-        Community::init_module_for_test(account);
+ #[test(account=@0xabc, admin = @my_addrx)]
+    public fun test_create_community(account: &signer, admin: &signer) {
+        Community::init_module_for_test(admin);
         let community_id = b"community1";
         
         // Create a community
@@ -32,13 +32,13 @@ module my_addrx::tests {
 
         // Verify that the community was created
  // Use the getter function to retrieve communities
-    let communities = Community::get_communities(account);
+    let communities = Community::get_communities_v2();
         assert!(vector::length(&communities) == 1, E_COMMUNITY_NOT_CREATED);
     }
 
- #[test(account=@0xabc)]
-    public fun test_create_post(account: &signer) {
-        Community::init_module_for_test(account);
+ #[test(account=@0xabc, admin = @my_addrx)]
+    public fun test_create_post(account: &signer, admin: &signer) {
+        Community::init_module_for_test(admin);
         let community_id = b"community1";
         Community::create_community(account, 
             community_id,
@@ -52,15 +52,15 @@ module my_addrx::tests {
 
         // Verify that the post was created
         // Use the getter function to retrieve communities
-    let communities = Community::get_communities(account);
+    let communities = Community::get_communities_v2();
         let community = vector::borrow(&communities, 0);
           let posts = Community::get_posts(community);
         assert!(vector::length(posts) == 1, E_POST_NOT_CREATED);
     }
 
- #[test(account=@0xabc)]
-    public fun test_create_proposal(account: &signer) {
-        Community::init_module_for_test(account);
+  #[test(account=@0xabc, admin = @my_addrx)]
+    public fun test_create_proposal(account: &signer, admin: &signer) {
+        Community::init_module_for_test(admin);
         let community_id = b"community1";
         Community::create_community(account, 
             community_id,
@@ -74,22 +74,22 @@ module my_addrx::tests {
         Community::create_proposal(account, community_id, proposal_id, title, description);
 
         // Verify that the proposal was created
-    let communities = Community::get_communities(account);
+    let communities = Community::get_communities_v2();
         let community = vector::borrow(&communities, 0);
         let proposals = Community::get_proposals(community);
         assert!(vector::length(proposals) == 1, E_PROPOSAL_NOT_CREATED);
     }
 
- #[test(account=@0xabc)]
-    public fun test_find_community_index(account: &signer) {
-        Community::init_module_for_test(account);
+  #[test(account=@0xabc, admin = @my_addrx)]
+    public fun test_find_community_index(account: &signer, admin: &signer) {
+        Community::init_module_for_test(admin);
         let community_id = b"community1";
         Community::create_community(account, 
             community_id,
             1, 1, 1, 1, 1, 1, 1, 1);
         
  // Use the getter function to retrieve communities
-    let communities = Community::get_communities(account);
+    let communities = Community::get_communities_v2();
         
         // Test for existing community
         let community_index = Community::find_community_index(&communities, community_id);
@@ -101,9 +101,9 @@ module my_addrx::tests {
     }
 
     //test for join community
-    #[test(account=@0xabc)]
-    public fun test_join_comunity(account: &signer){
-           Community::init_module_for_test(account);
+     #[test(account=@0xabc, admin = @my_addrx)]
+    public fun test_join_comunity(account: &signer, admin: &signer){
+           Community::init_module_for_test(admin);
            let community_id = b"community1";
 
                Community::create_community(account, 
@@ -113,7 +113,7 @@ module my_addrx::tests {
            Community::join_community(account, community_id);
 
         // Verify that the member was added to the community
-        let communities = Community::get_communities(account);
+        let communities = Community::get_communities_v2();
         let community = vector::borrow(&communities, 0);
 
         let members = Community::get_members(community);
@@ -121,9 +121,9 @@ module my_addrx::tests {
     }
 
     //test for leave community
-    #[test(account=@0xabc)]
-    public fun test_leave_comunity(account: &signer){
-           Community::init_module_for_test(account);
+     #[test(account=@0xabc, admin = @my_addrx)]
+    public fun test_leave_comunity(account: &signer, admin: &signer){
+           Community::init_module_for_test(admin);
            let community_id = b"community1";
 
                Community::create_community(account, 
@@ -135,7 +135,7 @@ module my_addrx::tests {
            Community::leave_community(account, community_id);
 
         // Verify that the member was removed to the community
-        let communities = Community::get_communities(account);
+        let communities = Community::get_communities_v2();
         let community = vector::borrow(&communities, 0);
 
         let members = Community::get_members(community);

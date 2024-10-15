@@ -141,6 +141,9 @@ module my_addrx::Community {
 
     // Module initialization
     fun init_module(account: &signer) {
+         let signer_address = signer::address_of(account);
+         assert!(signer_address == @my_addrx, E_NOT_AUTHORIZED);
+
         let communities_list = CommunitiesList {
             communities: vector::empty(),
         };
@@ -159,9 +162,8 @@ module my_addrx::Community {
                                    min_voice_power_poll: u64, 
                                    min_voice_age_poll: u64) acquires CommunitiesList {
     let signer_address = signer::address_of(account);
-    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
 
-    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    let communities_list = borrow_global_mut<CommunitiesList>(@my_addrx);
 
     let new_config = Config {
         post: ConfigProp { minimum_voice_power: min_voice_power_post, minimum_voice_age: min_voice_age_post },
@@ -198,6 +200,11 @@ module my_addrx::Community {
         communities_list.communities
     }
 
+       public fun get_communities_v2(): vector<Community> acquires CommunitiesList {
+        let communities_list = borrow_global<CommunitiesList>(@my_addrx);
+        communities_list.communities
+    }
+
     public fun get_members(community: &Community): &vector<address> {
         &community.members
     }
@@ -205,9 +212,8 @@ module my_addrx::Community {
     //join community
     public entry fun join_community(account: &signer, community_id: vector<u8>) acquires CommunitiesList {
     let signer_address = signer::address_of(account);
-    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
 
-    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    let communities_list = borrow_global_mut<CommunitiesList>(@my_addrx);
     
     // Use a helper function to find the index of the community
     let community_index = find_community_index(&communities_list.communities, community_id);
@@ -234,9 +240,8 @@ module my_addrx::Community {
     //leave community
     public entry fun leave_community(account: &signer, community_id: vector<u8>) acquires CommunitiesList {
     let signer_address = signer::address_of(account);
-    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
 
-    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    let communities_list = borrow_global_mut<CommunitiesList>(@my_addrx);
     
     // Use a helper function to find the index of the community
     let community_index = find_community_index(&communities_list.communities, community_id);
@@ -269,9 +274,8 @@ let len = vector::length(&community.members);
 // Create a post in a community
 public entry fun create_post(account: &signer, community_id: vector<u8>, post_id: vector<u8>, content: vector<u8>) acquires CommunitiesList {
     let signer_address = signer::address_of(account);
-    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
 
-    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    let communities_list = borrow_global_mut<CommunitiesList>(@my_addrx);
     
     // Use a helper function to find the index of the community
     let community_index = find_community_index(&communities_list.communities, community_id);
@@ -304,9 +308,8 @@ public fun get_posts(community: &Community): &vector<Post> {
 
     public entry fun create_proposal(account: &signer, community_id: vector<u8>, proposal_id: vector<u8>, title: vector<u8>, description: vector<u8>) acquires CommunitiesList {
     let signer_address = signer::address_of(account);
-    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
     
-    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    let communities_list = borrow_global_mut<CommunitiesList>(@my_addrx);
     
     // Use a helper function to find the index of the community
     let community_index = find_community_index(&communities_list.communities, community_id);
@@ -339,9 +342,8 @@ public fun get_proposals(community: &Community): &vector<Proposal> {
 
 public entry fun create_poll(account: &signer, community_id: vector<u8>, poll_id: vector<u8>, question: vector<u8>, options: vector<vector<u8>>) acquires CommunitiesList {
     let signer_address = signer::address_of(account);
-    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
     
-    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    let communities_list = borrow_global_mut<CommunitiesList>(@my_addrx);
 
     // Use a helper function to find the index of the community
     let community_index = find_community_index(&communities_list.communities, community_id);
@@ -369,9 +371,8 @@ public entry fun create_poll(account: &signer, community_id: vector<u8>, poll_id
 
 public entry fun create_comment(account: &signer, community_id: vector<u8>, post_id: vector<u8>, comment_id: vector<u8>, content: vector<u8>) acquires CommunitiesList {
     let signer_address = signer::address_of(account);
-    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
-    
-    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+
+    let communities_list = borrow_global_mut<CommunitiesList>(@my_addrx);
     
     // Use a helper function to find the index of the community
     let community_index = find_community_index(&communities_list.communities, community_id);
@@ -400,9 +401,8 @@ public entry fun create_comment(account: &signer, community_id: vector<u8>, post
 
 public entry fun create_applaud(account: &signer, community_id: vector<u8>, post_id: vector<u8>, applauded_id: vector<u8>) acquires CommunitiesList {
     let signer_address = signer::address_of(account);
-    assert!(exists<CommunitiesList>(signer_address), E_NOT_INITIALIZED);
 
-    let communities_list = borrow_global_mut<CommunitiesList>(signer_address);
+    let communities_list = borrow_global_mut<CommunitiesList>(@my_addrx);
     
     // Use a helper function to find the index of the community
     let community_index = find_community_index(&communities_list.communities, community_id);
@@ -425,16 +425,104 @@ public entry fun create_applaud(account: &signer, community_id: vector<u8>, post
     //view functions
     #[view]
     public fun get_user_communities(account: address): vector<Community> acquires CommunitiesList {
-        assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
-        let communities_list = borrow_global<CommunitiesList>(account);
+        // assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
+        let global_communities = borrow_global<CommunitiesList>(@my_addrx);
+        let total_communities = vector::length(&global_communities.communities);
+
+        // List to collect the communities that the user is a part of
+    let user_communities = vector::empty<Community>();
+      // Iterate over all communities to check if the user is either a creator or a member
+    for (i in 0..total_communities) {
+        let community = vector::borrow(&global_communities.communities, i);
+
+        // Check if the user is either the creator of the community or a member
+        if (community.address == account || is_user_a_member(&community.members, account)) {
+            vector::push_back(&mut user_communities, *community);
+        };
+    };
+
+    user_communities
+    }
+
+#[view]
+public fun get_user_posts(account: address, community_id: vector<u8>): vector<Post> acquires CommunitiesList {
+    let communities_list = borrow_global<CommunitiesList>(@my_addrx);
+
+    let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow(&communities_list.communities, community_index);
+
+    // Collect posts created by the user
+    let user_posts = vector::empty<Post>();
+    let total_posts = vector::length(&community.posts);
+
+    for (i in 0..total_posts) {
+        let post = vector::borrow(&community.posts, i);
+        if (post.creator == account) {
+            vector::push_back(&mut user_posts, *post);
+        };
+    };
+
+    user_posts
+}
+
+
+#[view]
+public fun get_user_proposals(account: address, community_id: vector<u8>): vector<Proposal> acquires CommunitiesList {
+    let communities_list = borrow_global<CommunitiesList>(@my_addrx);  // Global CommunitiesList
+
+    let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow(&communities_list.communities, community_index);
+
+    // Collect proposals created by the user
+    let user_proposals = vector::empty<Proposal>();
+    let total_proposals = vector::length(&community.proposals);
+
+    for (i in 0..total_proposals) {
+        let proposal = vector::borrow(&community.proposals, i);
+        if (proposal.creator == account) {
+            vector::push_back(&mut user_proposals, *proposal);
+        };
+    };
+
+    user_proposals
+}
+
+
+#[view]
+public fun get_user_polls(account: address, community_id: vector<u8>): vector<Poll> acquires CommunitiesList {
+    let communities_list = borrow_global<CommunitiesList>(@my_addrx);  // Global CommunitiesList
+
+    let community_index = find_community_index(&communities_list.communities, community_id);
+    let community = vector::borrow(&communities_list.communities, community_index);
+
+    // Collect polls created by the user
+    let user_polls = vector::empty<Poll>();
+    let total_polls = vector::length(&community.polls);
+
+    for (i in 0..total_polls) {
+        let poll = vector::borrow(&community.polls, i);
+        if (poll.creator == account) {
+            vector::push_back(&mut user_polls, *poll);
+        };
+    };
+
+    user_polls
+}
+
+
+
+    #[view]
+    public fun get_all_communities(): vector<Community> acquires CommunitiesList {
+        // assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
+        let communities_list = borrow_global<CommunitiesList>(@my_addrx);
         communities_list.communities
     }
 
        #[view]
-    public fun get_user_posts(account: address, community_id: vector<u8>): vector<Post> acquires CommunitiesList {
-    assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
+    public fun get_all_posts(community_id: vector<u8>): vector<Post> acquires CommunitiesList {
+    // assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
 
-    let communities_list = borrow_global_mut<CommunitiesList>(account);
+    let communities_list = borrow_global_mut<CommunitiesList>(@my_addrx);
  let community_index = find_community_index(&communities_list.communities, community_id);
     let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
 
@@ -442,22 +530,22 @@ public entry fun create_applaud(account: &signer, community_id: vector<u8>, post
 }
 
     #[view]
-    public fun get_user_proposals(account: address, community_id: vector<u8>): vector<Proposal> acquires CommunitiesList {
-    assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
+    public fun get_all_proposals(community_id: vector<u8>): vector<Proposal> acquires CommunitiesList {
+    // assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
 
-    let communities_list = borrow_global_mut<CommunitiesList>(account);
- let community_index = find_community_index(&communities_list.communities, community_id);
+    let communities_list = borrow_global_mut<CommunitiesList>(@my_addrx);
+    let community_index = find_community_index(&communities_list.communities, community_id);
     let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
 
     community.proposals
 }
 
    #[view]
-    public fun get_user_polls(account: address, community_id: vector<u8>): vector<Poll> acquires CommunitiesList {
-    assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
+    public fun get_all_polls(community_id: vector<u8>): vector<Poll> acquires CommunitiesList {
+    // assert!(exists<CommunitiesList>(account), E_NOT_INITIALIZED);
 
-    let communities_list = borrow_global_mut<CommunitiesList>(account);
- let community_index = find_community_index(&communities_list.communities, community_id);
+    let communities_list = borrow_global_mut<CommunitiesList>(@my_addrx);
+    let community_index = find_community_index(&communities_list.communities, community_id);
     let community = vector::borrow_mut<Community>(&mut communities_list.communities, community_index);
 
     community.polls
@@ -486,6 +574,16 @@ public entry fun create_applaud(account: &signer, community_id: vector<u8>, post
         };
         abort E_NOT_FOUND
     }
+
+    fun is_user_a_member(members: &vector<address>, user_address: address): bool {
+    let len = vector::length(members);
+    for (i in 0..len) {
+        if (*vector::borrow(members, i) == user_address) {
+            return true
+        };
+    };
+    return false
+}
 
       #[test_only]
     public fun init_module_for_test(sender: &signer) {
